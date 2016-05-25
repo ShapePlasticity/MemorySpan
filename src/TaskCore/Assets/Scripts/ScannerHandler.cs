@@ -15,6 +15,10 @@ public class ScannerHandler : MonoBehaviour
     Sprite[] _waitingSprite;
 
     private bool _trigger = false;
+    private bool _firstTrigger = false;
+    private long _scannerDelayStart;
+    private long _scannerDelayEnd;
+    public long ScannerDelay = 0;
 
     private int _scanCount;
     private DateTime _scanTime = DateTime.Now;
@@ -27,6 +31,8 @@ public class ScannerHandler : MonoBehaviour
 
         _waitingSprite = Resources.LoadAll<Sprite>("Sprites/hourglass");
         _trigger = Input.GetKeyDown(TaskSettingsManager.TaskSettings.TriggerKeyVal);
+
+        _scannerDelayStart = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
     }
 
     public void WaitForTrigger()
@@ -39,6 +45,9 @@ public class ScannerHandler : MonoBehaviour
 
         if (_trigger && _taskEngine.CurrentTaskState == TaskState.WaitForTrigger)
         {
+            _scannerDelayEnd = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
+            ScannerDelay = (_scannerDelayEnd - _scannerDelayStart);
+
             _taskEngine.MainGO.SetActive(false);
             _taskEngine.CurrentTaskState = TaskState.RunTask;
         }

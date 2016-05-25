@@ -14,6 +14,7 @@ public class TaskEngine : MonoBehaviour
     private Difficulty _difficulty;
     private ScannerHandler _scannerIn;
     private KeyboardHandler _keyInput;
+    private TimeHandler _timer;
 
     private IPerfLog _logger = new FileSystemLogger();
     private AttemptEval _currentRespEval = AttemptEval.Init;
@@ -57,6 +58,9 @@ public class TaskEngine : MonoBehaviour
     //private long _presentEndTime = 0;
     //public long PresentDuration = 0;
     public long TrialTimeLimit = 10000;
+    private int _trialCount = 3;
+    private int _trialLimit = 2;
+    private int _baselineLimit = 0;
 
     public int MaxSpan = 0; //maximun DigitSpan reached by user
     private int _iterationCount = 0;
@@ -72,6 +76,7 @@ public class TaskEngine : MonoBehaviour
 
         _scannerIn = FindObjectOfType<ScannerHandler>();
         _keyInput = FindObjectOfType<KeyboardHandler>();
+        _timer = FindObjectOfType<TimeHandler>();
 
         if (_gameManager.EnableTriggerOnScanner == true)
         {
@@ -129,7 +134,7 @@ public class TaskEngine : MonoBehaviour
 
         // Change the camera to be the right size based on sprite sheet width
         var cam = Camera.main;
-        cam.orthographicSize = (spriteWidth + spritePadding) * Screen.height / Screen.width * 0.5f;
+        cam.orthographicSize = (spriteWidth + spritePadding) * Screen.height / Screen.width * .5f;
 
         float height = 2f * cam.orthographicSize;
         float width = height * cam.aspect;
@@ -142,7 +147,8 @@ public class TaskEngine : MonoBehaviour
     }
 
     void Start()
-    {   
+    {
+        BlockStartTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
         StartCoroutine(RunTask());
     }
 
@@ -162,10 +168,23 @@ public class TaskEngine : MonoBehaviour
 
             _logger.Init();
 
-            while ((_currentSpanLength < _maxSpanLimit) && (Time.timeSinceLevelLoad < _taskTimeLimit))
+            while ((_timer.EndTask == false))
             {
                 yield return StartCoroutine(ShowSpan());
                 yield return StartCoroutine(CollectResponses());
+
+                //if (_timer.SwitchBlock == true)
+                //{
+                //    switch (CurrentBlockType)
+                //    {
+                //        case BlockType.BaselineBlock:
+                //            CurrentBlockType = BlockType.TrialBlock;
+                //            break;
+                //        case BlockType.TrialBlock:
+                //            CurrentBlockType = BlockType.BaselineBlock;
+                //            break;
+                //    }
+                //}
             }
         }
 
@@ -175,6 +194,7 @@ public class TaskEngine : MonoBehaviour
 
             while ((_currentSpanLength < _maxSpanLimit) && (Time.timeSinceLevelLoad < _taskTimeLimit))
             {
+
                 yield return StartCoroutine(ShowSpan());
                 yield return StartCoroutine(CollectResponses());
             }
@@ -247,7 +267,7 @@ public class TaskEngine : MonoBehaviour
                     yield return new WaitForSeconds(200 / 1000f);
 
                 // Load the sprite and show it for digit timeout in msec
-                MainGO.GetComponent<SpriteRenderer>().sprite = _spriteArray[_randomIndexArray[i]];
+                MainGO.GetComponent<SpriteRenderer>().sprite = _spriteArray[1];
                 MainGO.SetActive(true);
 
                 yield return new WaitForSeconds(_digitTimeout / 1000f);
@@ -294,9 +314,26 @@ public class TaskEngine : MonoBehaviour
                 _iterationCount++;
                 _currentRespEval = CheckResponses(); 
                 _spanLengths.Add(_currentSpanLength); //comtains all span lengths attempted
+
                 //calculating total trial duration
                 TrialEndTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
                 TrialDuration = (TrialEndTime - TrialStartTime);
+                _trialCount++;
+
+                if (CurrentTaskType == TaskType.Scanner)
+                {
+                    if (CurrentBlockType == BlockType.TrialBlock && _trialCount >= _trialLimit)
+                    {
+                        _trialCount = 0;
+                        CurrentBlockType = BlockType.BaselineBlock;
+                    }
+
+                    if (CurrentBlockType == BlockType.BaselineBlock && _trialCount >= _baselineLimit)
+                    {
+                        _trialCount = 0;
+                        CurrentBlockType = BlockType.TrialBlock;
+                    }
+                }
 
                 //log response
                 ResponseLogger();
@@ -323,6 +360,7 @@ public class TaskEngine : MonoBehaviour
         }
 
         yield return new WaitForSeconds(0.5f);
+
     }
 
     //checks if user input matches current Digit span (correct/incorrect)
