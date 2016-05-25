@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: fbcc909aed2a75e4b93e71931b36cf88
+timeCreated: 1449513814
+licenseType: Free
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences:
+  - Check: {fileID: 21300000, guid: 0eade339eb3f71c4bbfa09067a5092f2, type: 3}
+  - Cross: {instanceID: 0}
+  - Hourglass: {instanceID: 0}
+  - MainGO: {instanceID: 0}
+  - ButtonTemplate: {instanceID: 0}
+  - Buttons: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
