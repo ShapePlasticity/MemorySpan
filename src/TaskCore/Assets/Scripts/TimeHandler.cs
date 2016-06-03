@@ -40,31 +40,7 @@ public class TimeHandler : MonoBehaviour {
 	void Update ()
     {
         //TaskTimeManager();
-        //BlockTimeManager();
 	}
-
-    public void BlockTimeManager()
-    {
-        SwitchBlock = false;
-
-        if (_taskEngine.CurrentBlockType == BlockType.TrialBlock)
-        {
-            _currentBlockLengthLimit = _trialBlockLimit;
-        }
-        if (_taskEngine.CurrentBlockType == BlockType.BaselineBlock)
-        {
-            _currentBlockLengthLimit = _baselineBlockLimit;
-        }
-
-
-        _blockEndTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
-        _currentBlockLength = (_blockEndTime - _taskEngine.BlockStartTime);
-
-        if (_currentBlockLength > _currentBlockLengthLimit)
-        {
-            SwitchBlock = true;
-        }
-    }
 
     public void TaskTimeManager()
     {

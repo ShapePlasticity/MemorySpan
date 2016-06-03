@@ -21,7 +21,7 @@ public class TaskEngine : MonoBehaviour
 
     public TaskType CurrentTaskType = TaskType.Standard;
     public TaskState CurrentTaskState = TaskState.RunTask;
-    public BlockType CurrentBlockType = BlockType.TrialBlock;
+    public BlockType CurrentBlockType = BlockType.RecallBlock;
 
     #region Public Visual Sprites & Objects
     public GameObject MainGO;
@@ -39,13 +39,15 @@ public class TaskEngine : MonoBehaviour
     private DateTime _reinforcementTimer = DateTime.Now;
 
     private int _taskTimeLimit = 90; //total time the trial will run for (sec)
-    private int _digitTimeout = 300;//how long each digit is displayed on screen (msec)
+    private int _digitTimeout = 350;//how long each digit is displayed on screen (msec)
     public float FeedbackTimeout = 300;
     private int _responseTimeLimit = 4; //amount of time alloted for user to make response
+    private int _baselineResponseTimeLimit = 3;
 
     private int _randomIndex; //random ints used to index into sprite array
     private int _startingSpanLength = 2; //the # of digits that will be presented on the initial iteration
     private int _currentSpanLength = 0; // tracks current length of the digit span
+    private int _baselineSpanLength = 4;
     private int _maxSpanLimit = 4; //maximum span length allowed on trial
     private string _spriteFileName = "Sprites/Numbers";
     private int _digitsCorrect = 0; //number of digits correctly placed in an overall incorrect response
@@ -54,13 +56,11 @@ public class TaskEngine : MonoBehaviour
     public long TrialEndTime = 0;
     public long TrialDuration = 0;
     public long BlockStartTime = 0;
-    //private long _presentStartTime = 0;
-    //private long _presentEndTime = 0;
-    //public long PresentDuration = 0;
-    public long TrialTimeLimit = 10000;
-    private int _trialCount = 3;
-    private int _trialLimit = 2;
-    private int _baselineLimit = 0;
+    public long RecallTimeLimit = 10000; //how long each trial will be in ms (scanner only)
+    public long BaselineTimeLimit = 6000;
+    private int _trialCount = 0;
+    private int _recallTrialLimit = 4;
+    private int _baselineTrialLimit = 3;
 
     public int MaxSpan = 0; //maximun DigitSpan reached by user
     private int _iterationCount = 0;
@@ -148,7 +148,7 @@ public class TaskEngine : MonoBehaviour
 
     void Start()
     {
-        BlockStartTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
+        //BlockStartTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
         StartCoroutine(RunTask());
     }
 
@@ -168,23 +168,10 @@ public class TaskEngine : MonoBehaviour
 
             _logger.Init();
 
-            while ((_timer.EndTask == false))
+            while ((Time.timeSinceLevelLoad < _taskTimeLimit))
             {
                 yield return StartCoroutine(ShowSpan());
                 yield return StartCoroutine(CollectResponses());
-
-                //if (_timer.SwitchBlock == true)
-                //{
-                //    switch (CurrentBlockType)
-                //    {
-                //        case BlockType.BaselineBlock:
-                //            CurrentBlockType = BlockType.TrialBlock;
-                //            break;
-                //        case BlockType.TrialBlock:
-                //            CurrentBlockType = BlockType.BaselineBlock;
-                //            break;
-                //    }
-                //}
             }
         }
 
@@ -194,7 +181,6 @@ public class TaskEngine : MonoBehaviour
 
             while ((_currentSpanLength < _maxSpanLimit) && (Time.timeSinceLevelLoad < _taskTimeLimit))
             {
-
                 yield return StartCoroutine(ShowSpan());
                 yield return StartCoroutine(CollectResponses());
             }
@@ -207,10 +193,7 @@ public class TaskEngine : MonoBehaviour
     //display the span to user
     IEnumerator ShowSpan()
     {
-        //TODO:BLOCK TIMING
-        BlockStartTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
-
-        if (CurrentBlockType == BlockType.TrialBlock)
+        if (CurrentBlockType == BlockType.RecallBlock)
         {
             TrialStartTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
 
@@ -253,13 +236,13 @@ public class TaskEngine : MonoBehaviour
             _randomIndexArray.Clear();
             _responseArray.Clear();
 
-            for (int i = 0; i < _currentSpanLength; i++)
+            for (int i = 0; i < _baselineSpanLength; i++)
             {
-                _randomIndex = Random.Range(0, _spriteArray.Length);
+                _randomIndex = i;
                 _randomIndexArray.Add(_randomIndex); //an array of randomly selected ints used to tag the digit sprites themselves 
             }
 
-            for (int i = 0; i < _currentSpanLength; i++)
+            for (int i = 0; i < _baselineSpanLength; i++)
             {
                 // Delay this next digit if it is not the first (200 ms wait in between digit presentation if not first digit)
                 if (i != 0)
@@ -267,7 +250,7 @@ public class TaskEngine : MonoBehaviour
                     yield return new WaitForSeconds(200 / 1000f);
 
                 // Load the sprite and show it for digit timeout in msec
-                MainGO.GetComponent<SpriteRenderer>().sprite = _spriteArray[1];
+                MainGO.GetComponent<SpriteRenderer>().sprite = _spriteArray[_randomIndexArray[i]];
                 MainGO.SetActive(true);
 
                 yield return new WaitForSeconds(_digitTimeout / 1000f);
@@ -307,53 +290,91 @@ public class TaskEngine : MonoBehaviour
                 continue;
             }
 
-            // If we have processed all responses or hit our timeout then process and break loop
-            if (((_randomIndexArray.Count <= _responseArray.Count)) || (((DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond) - _responseTimer)/1000) >= _responseTimeLimit)
+            if (CurrentBlockType == BlockType.BaselineBlock)
             {
-                //return of this is eval of answer 
-                _iterationCount++;
-                _currentRespEval = CheckResponses(); 
-                _spanLengths.Add(_currentSpanLength); //comtains all span lengths attempted
-
-                //calculating total trial duration
-                TrialEndTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
-                TrialDuration = (TrialEndTime - TrialStartTime);
-                _trialCount++;
-
-                if (CurrentTaskType == TaskType.Scanner)
+                // If we have processed all responses or hit our timeout then process and break loop
+                if (((_randomIndexArray.Count <= _responseArray.Count)) || (((DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond) - _responseTimer) / 1000) >= _baselineResponseTimeLimit)
                 {
-                    if (CurrentBlockType == BlockType.TrialBlock && _trialCount >= _trialLimit)
+                    //return of this is eval of answer 
+                    _iterationCount++;
+                    _currentRespEval = CheckResponses();
+                    _spanLengths.Add(_currentSpanLength); //comtains all span lengths attempted
+
+                    //calculating total trial duration
+                    TrialEndTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
+                    TrialDuration = (TrialEndTime - TrialStartTime);
+                    _trialCount++;
+
+                    ////log response
+                    //ResponseLogger();
+                    ////set span length
+                    //_currentSpanLength = _difficulty.ProcessAttempt(_currentRespEval);
+
+                    //if we are in scanner...calculate the appropreate time to display feedback to make trial last x number of sec
+                    FeedbackTimeout = (BaselineTimeLimit - TrialDuration);
+
+                    MainGO.GetComponent<SpriteRenderer>().sprite = _feedbackSprite;
+                    MainGO.SetActive(true);
+
+                    yield return new WaitForSeconds(FeedbackTimeout / 1000);
+                    MainGO.SetActive(false);
+
+                    if (_trialCount >= _baselineTrialLimit)
                     {
                         _trialCount = 0;
-                        CurrentBlockType = BlockType.BaselineBlock;
+                        CurrentBlockType = BlockType.RecallBlock;
                     }
 
-                    if (CurrentBlockType == BlockType.BaselineBlock && _trialCount >= _baselineLimit)
-                    {
-                        _trialCount = 0;
-                        CurrentBlockType = BlockType.TrialBlock;
-                    }
+                    break;
                 }
 
-                //log response
-                ResponseLogger();
-                //set span length
-                _currentSpanLength = _difficulty.ProcessAttempt(_currentRespEval);
-
-                //if we are in scanner...calculate the appropreate time to display feedback to make trial last x number of sec
-                if (CurrentTaskType == TaskType.Scanner)
-                {
-                    FeedbackTimeout = (TrialTimeLimit - TrialDuration);
-                }
-
-                MainGO.GetComponent<SpriteRenderer>().sprite = _feedbackSprite;
-                MainGO.SetActive(true);
-
-                yield return new WaitForSeconds(FeedbackTimeout/1000);
-                MainGO.SetActive(false);
-
-                break;
             }
+
+            if (CurrentBlockType == BlockType.RecallBlock)
+            {
+                // If we have processed all responses or hit our timeout then process and break loop
+                if (((_randomIndexArray.Count <= _responseArray.Count)) || (((DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond) - _responseTimer) / 1000) >= _responseTimeLimit)
+                {
+                    //return of this is eval of answer 
+                    _iterationCount++;
+                    _currentRespEval = CheckResponses();
+                    _spanLengths.Add(_currentSpanLength); //comtains all span lengths attempted
+
+                    //calculating total trial duration
+                    TrialEndTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
+                    TrialDuration = (TrialEndTime - TrialStartTime);
+                    _trialCount++;
+
+                    //log response
+                    ResponseLogger();
+                    //set span length
+                    _currentSpanLength = _difficulty.ProcessAttempt(_currentRespEval);
+
+                    //if we are in scanner...calculate the appropreate time to display feedback to make trial last x number of sec
+                    if (CurrentTaskType == TaskType.Scanner)
+                    {
+                        FeedbackTimeout = (RecallTimeLimit - TrialDuration);
+                    }
+
+                    MainGO.GetComponent<SpriteRenderer>().sprite = _feedbackSprite;
+                    MainGO.SetActive(true);
+
+                    yield return new WaitForSeconds(FeedbackTimeout / 1000);
+                    MainGO.SetActive(false);
+
+                    if (CurrentTaskType == TaskType.Scanner)
+                    {
+                        if (_trialCount >= _recallTrialLimit)
+                        {
+                            _trialCount = 0;
+                            CurrentBlockType = BlockType.BaselineBlock;
+                        }
+                    }
+
+                    break;
+                }
+            }
+            
 
             // Pause for 100 msec and check again for response
             yield return new WaitForSeconds(0.1f);
@@ -402,7 +423,7 @@ public class TaskEngine : MonoBehaviour
 
     public void ResponseLogger()
     {
-        if (CurrentBlockType == BlockType.TrialBlock)
+        if (CurrentBlockType == BlockType.RecallBlock)
         {
             _logger.LogRaw(_iterationCount + " " + _currentSpanLength + " " + _currentRespEval.ToString() + " " + _spanLengths.Max());
         }
@@ -424,5 +445,5 @@ public enum TaskState
 public enum BlockType
 {
     BaselineBlock,
-    TrialBlock
+    RecallBlock
 }
