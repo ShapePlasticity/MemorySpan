@@ -97,6 +97,11 @@ public class TaskEngine : MonoBehaviour
         //IMPORTANT: loads thatever is in the resource's folder to the array
         _spriteArray = Resources.LoadAll<Sprite>("Sprites/Numbers");
 
+        if (CurrentTaskType == TaskType.Scanner)
+        {
+            _spriteArray = Resources.LoadAll<Sprite>("Sprites/NumbersScanner");
+        }
+
         var spritePadding = 15f * (_spriteArray.Length-1);
         var spriteWidth = 0f;
 
@@ -296,9 +301,9 @@ public class TaskEngine : MonoBehaviour
                 if (((_randomIndexArray.Count <= _responseArray.Count)) || (((DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond) - _responseTimer) / 1000) >= _baselineResponseTimeLimit)
                 {
                     //return of this is eval of answer 
-                    _iterationCount++;
-                    _currentRespEval = CheckResponses();
-                    _spanLengths.Add(_currentSpanLength); //comtains all span lengths attempted
+                    //_iterationCount++;
+                    //_currentRespEval = CheckResponses();
+                    //_spanLengths.Add(_currentSpanLength); //comtains all span lengths attempted
 
                     //calculating total trial duration
                     TrialEndTime = (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond);
